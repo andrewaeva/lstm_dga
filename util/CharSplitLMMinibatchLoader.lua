@@ -150,13 +150,16 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     f:close()
     -- sort into a table (i.e. keys become 1..N)
     local ordered = {}
-    for char in pairs(unordered) do ordered[#ordered + 1] = char end
+    for char in pairs(unordered) do 
+    	ordered[#ordered + 1] = char	
+	end
     table.sort(ordered)
     -- invert `ordered` to create the char->int mapping
     local vocab_mapping = {}
     for i, char in ipairs(ordered) do
         vocab_mapping[char] = i
     end
+    print (vocab_mapping)
     -- construct a tensor with all the data
     print('putting data into tensor...')
     local data = torch.ByteTensor(tot_len) -- store it into 1D first, then rearrange

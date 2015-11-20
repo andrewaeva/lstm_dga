@@ -242,8 +242,9 @@ function eval_split(split_index, max_batches)
         --
         hidden = rnn_state[#rnn_state][1]
         hidden_tsne = torch.DoubleTensor(hidden:size()):copy(hidden)
-        p = m.embedding.tsne(hidden_tsne, {dim=2})
+        p = m.embedding.tsne(hidden_tsne, {dim=2, perplexity=30})
         print(p)
+
         --
         --
         print(i .. '/' .. n .. '...')
