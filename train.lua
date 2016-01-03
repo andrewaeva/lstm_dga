@@ -34,7 +34,8 @@ cmd:text('Train a character-level language model')
 cmd:text()
 cmd:text('Options')
 -- data
-cmd:option('-data_dir','data/tinyshakespeare','data directory. Should contain the file input.txt with input data')
+cmd:option('-data_dir','/','data directory. Should contain the file domains.txt with input data')
+cmd:option('-name_file','input.txt','name of input.txt file')
 -- model params
 cmd:option('-rnn_size', 128, 'size of LSTM internal state')
 cmd:option('-num_layers', 2, 'number of layers in the LSTM')
@@ -109,7 +110,7 @@ if opt.gpuid >= 0 and opt.opencl == 1 then
 end
 
 -- create the data loader class
-local loader = CharSplitLMMinibatchLoader.create(opt.data_dir, opt.batch_size, opt.seq_length, split_sizes)
+local loader = CharSplitLMMinibatchLoader.create(opt.data_dir, opt.name_file, opt.batch_size, opt.seq_length, split_sizes)
 local vocab_size = loader.vocab_size  -- the number of distinct characters
 local vocab = loader.vocab_mapping
 print('vocab size: ' .. vocab_size)
@@ -238,14 +239,11 @@ function eval_split(split_index, max_batches)
         -- carry over lstm state
         rnn_state[0] = rnn_state[#rnn_state]
 
-        --
-        --
+        --Visualization of hidden state LSTM using TSNE
         hidden = rnn_state[#rnn_state][1]
         hidden_tsne = torch.DoubleTensor(hidden:size()):copy(hidden)
         p = m.embedding.tsne(hidden_tsne, {dim=2, perplexity=30})
         print(p)
-
-        --
         --
         print(i .. '/' .. n .. '...')
     end
