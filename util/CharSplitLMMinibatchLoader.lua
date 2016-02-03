@@ -37,7 +37,7 @@ function CharSplitLMMinibatchLoader.create(data_dir, name_file, batch_size, seq_
     if run_prepro then
         -- construct a tensor with all the data, and vocab file
         print('one-time setup: preprocessing input text file ' .. input_file .. '...')
-        CharSplitLMMinibatchLoader.text_to_tensor(input_file, vocab_file, tensor_file)
+        CharSplitLMMinibatchLoader.text_to_tensor(input_file, vocab_file, tensor_file, seq_length)
     end
 
     print('loading data files...')
@@ -45,13 +45,16 @@ function CharSplitLMMinibatchLoader.create(data_dir, name_file, batch_size, seq_
     self.vocab_mapping = torch.load(vocab_file)
 
     -- cut off the end so that it divides evenly
-    local len = data:size(1)
-    if len % (batch_size * seq_length) ~= 0 then
-        print('cutting off end of data so that the batches/sequences divide evenly')
-        data = data:sub(1, batch_size * seq_length 
-                    * math.floor(len / (batch_size * seq_length)))
-    end
+    --local len = data:size(1)
+    --if len % (batch_size * seq_length) ~= 0 then
+    --    print('cutting off end of data so that the batches/sequences divide evenly')
+    --    data = data:sub(1, batch_size * seq_length
+    --                * math.floor(len / (batch_size * seq_length)))
+    --end
 
+    len = data:size(1)
+    data = data:sub(1, batch_size * math.floor(len / batch_size ))
+    print(data:size(1))
     -- count vocab
     self.vocab_size = 0
     for _ in pairs(self.vocab_mapping) do 
@@ -66,9 +69,10 @@ function CharSplitLMMinibatchLoader.create(data_dir, name_file, batch_size, seq_
     local ydata = data:clone()
     ydata:sub(1,-2):copy(data:sub(2,-1))
     ydata[-1] = data[1]
-    self.x_batches = data:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
+    print('debug')
+    self.x_batches = data:split(batch_size, 1)-- #rows = #batches
     self.nbatches = #self.x_batches
-    self.y_batches = ydata:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
+    self.y_batches = ydata:split(batch_size, 1)  -- #rows = #batches
     assert(#self.x_batches == #self.y_batches)
 
     -- lets try to be helpful here
@@ -126,7 +130,7 @@ end
 
 -- *** STATIC method ***
 -- Создает vocab из всех возможных char, сортирует -> int, всё это в Tensor
-function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, out_tensorfile)
+function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, out_tensorfile, seq_length)
     local timer = torch.Timer()
 
     print('loading text file...')
@@ -143,13 +147,20 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     repeat
         -- Посимвольно составляем словарь,
         -- размечаем есть ли этот символ в массиве
-        for char in rawdata:gmatch'.' do 
+        for char in rawdata:gmatch'.' do
+            if char == "\n" then break end
             if not unordered[char] then unordered[char] = true end
         end
         tot_len = tot_len + #rawdata
         rawdata = f:read(cache_len)
     until not rawdata
     f:close()
+
+    f = assert(io.open(in_textfile, "r"))
+    num_of_domains = stringx.splitlines(f:read("*all"))
+    print("Всего доменов  " .. #num_of_domains)
+    f:close()
+
     -- sort into a table (i.e. keys become 1..N)
     -- N - количество уникальных символов
     local ordered = {}
@@ -167,48 +178,43 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     --
     -- construct a tensor with all the data
     print('putting data into tensor...')
-    local data = torch.ByteTensor(tot_len) -- store it into 1D first, then rearrange
+    local data = torch.ByteTensor(#num_of_domains, seq_length)
     f = assert(io.open(in_textfile, "r"))
 
-
-    -----------local currlen = 0
-    -----------
-    ------------- читаем filename и мапим символы по "карте", которую мы составили до этого
-    -----------rawdata = f:read("*all")
-    -----------
-    ------------- разбиваем наш текстовы файл на домены
-    -----------rawdata = stringx.splitlines(rawdata)
-    -----------
-    ------------- вывод всех доменов
-    ------------- print(rawdata)
-    -----------
-    -----------for i=1, #rawdata do
-    -----------    for j=1, #rawdata[i] do
-    -----------        -- мапим каждый домен по "карте"
-    -----------        data[currlen+j] = vocab_mapping[rawdata[i]:sub(j, j)] -- lua has no string indexing using []
-    -----------    end
-    -----------    currlen = currlen + #rawdata[i]
-    -----------end
-    -----------f:close()
-
+    print('debug')
     local currlen = 0
-    rawdata = f:read(cache_len)
-    repeat
-        for i=1, #rawdata do
-            data[currlen+i] = vocab_mapping[rawdata:sub(i, i)] -- lua has no string indexing using []
+
+    -- читаем filename и мапим символы по "карте", которую мы составили до этого
+    rawdata = f:read("*all")
+
+    -- разбиваем наш текстовы файл на домены
+    rawdata = stringx.splitlines(rawdata)
+
+    -- вывод всех доменов
+
+    for i=1, #rawdata do
+        --print(rawdata[i])
+        for j=1, seq_length do
+            -- мапим каждый домен по "карте"
+            data[i][j] = vocab_mapping[rawdata[i]:sub(j, j)]
         end
-        currlen = currlen + #rawdata
-        rawdata = f:read(cache_len)
-    until not rawdata
+        currlen = currlen + #rawdata[i]
+    end
     f:close()
+
+    --local currlen = 0
+    --rawdata = f:read(cache_len)
+    --repeat
+    --    for i=1, #rawdata do
+    --        data[currlen+i] = vocab_mapping[rawdata:sub(i, i)] -- lua has no string indexing using []
+    --    end
+    --    currlen = currlen + #rawdata
+    --    rawdata = f:read(cache_len)
+    --until not rawdata
+    --f:close()
 
     print("Всего символов в data " .. currlen )
-
-    f = assert(io.open(in_textfile, "r"))
-    num_of_domains = stringx.splitlines(f:read("*all"))
-    print("Всего доменов загружено " .. #num_of_domains)
-    f:close()
-
+    -- print(data)
     -- save output preprocessed files
     print('saving ' .. out_vocabfile)
     torch.save(out_vocabfile, vocab_mapping)
