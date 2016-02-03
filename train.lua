@@ -1,18 +1,3 @@
-
---[[
-
-This file trains a character-level multi-layer RNN on text data
-
-Code is based on implementation in 
-https://github.com/oxford-cs-ml-2015/practical6
-but modified to have multi-layer support, GPU support, as well as
-many other common model/optimization bells and whistles.
-The practical6 code is in turn based on 
-https://github.com/wojciechz/learning_to_execute
-which is turn based on other stuff in Torch, etc... (long lineage)
-
-]]--
-
 require 'torch'
 require 'nn'
 require 'nngraph'
@@ -34,7 +19,7 @@ cmd:text('Train a character-level language model')
 cmd:text()
 cmd:text('Options')
 -- data
-cmd:option('-data_dir','/','data directory. Should contain the file domains.txt with input data')
+cmd:option('-data_dir','./','data directory. Should contain the file domains.txt with input data')
 cmd:option('-name_file','input.txt','name of input.txt file')
 -- model params
 cmd:option('-rnn_size', 128, 'size of LSTM internal state')

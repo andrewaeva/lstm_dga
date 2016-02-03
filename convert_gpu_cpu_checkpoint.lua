@@ -1,11 +1,3 @@
---[[
-A quick patch for converting GPU checkpoints to 
-CPU checkpoints until I implement a more long-term
-solution. Takes the path to the model and creates
-a file in the same location and path, but with _cpu.t7
-appended.
-]]--
-
 require 'torch'
 require 'nn'
 require 'nngraph'
