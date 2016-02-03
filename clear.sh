@@ -1,1 +1,2 @@
-rm -rf dga_wordlists/*/*.t7
+rm -rf /*/*.t7
+rm -rf *.t7

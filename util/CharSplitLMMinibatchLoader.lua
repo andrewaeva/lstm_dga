@@ -56,7 +56,6 @@ function CharSplitLMMinibatchLoader.create(data_dir, name_file, batch_size, seq_
     self.vocab_size = 0
     for _ in pairs(self.vocab_mapping) do 
         self.vocab_size = self.vocab_size + 1
-        print(string.format('Vocab size = %d', self.vocab_size))
     end
 
     -- self.batches is a table of tensors
@@ -67,7 +66,6 @@ function CharSplitLMMinibatchLoader.create(data_dir, name_file, batch_size, seq_
     local ydata = data:clone()
     ydata:sub(1,-2):copy(data:sub(2,-1))
     ydata[-1] = data[1]
-    -- data = stringx.split('\n')
     self.x_batches = data:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
     self.nbatches = #self.x_batches
     self.y_batches = ydata:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
@@ -143,7 +141,8 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     local unordered = {}
     rawdata = f:read(cache_len)
     repeat
-        --Посимвольно составляем словарь
+        -- Посимвольно составляем словарь,
+        -- размечаем есть ли этот символ в массиве
         for char in rawdata:gmatch'.' do 
             if not unordered[char] then unordered[char] = true end
         end
@@ -152,21 +151,46 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     until not rawdata
     f:close()
     -- sort into a table (i.e. keys become 1..N)
+    -- N - количество уникальных символов
     local ordered = {}
     for char in pairs(unordered) do 
     	ordered[#ordered + 1] = char	
 	end
     table.sort(ordered)
-    -- invert `ordered` to create the char->int mapping
+    -- соствавляем "карту" char -> int
     local vocab_mapping = {}
     for i, char in ipairs(ordered) do
         vocab_mapping[char] = i
     end
     print (vocab_mapping)
+    -- теперь у нас есть "карта" всех уникальных символов - vocab.t7
+    --
     -- construct a tensor with all the data
     print('putting data into tensor...')
     local data = torch.ByteTensor(tot_len) -- store it into 1D first, then rearrange
     f = assert(io.open(in_textfile, "r"))
+
+
+    -----------local currlen = 0
+    -----------
+    ------------- читаем filename и мапим символы по "карте", которую мы составили до этого
+    -----------rawdata = f:read("*all")
+    -----------
+    ------------- разбиваем наш текстовы файл на домены
+    -----------rawdata = stringx.splitlines(rawdata)
+    -----------
+    ------------- вывод всех доменов
+    ------------- print(rawdata)
+    -----------
+    -----------for i=1, #rawdata do
+    -----------    for j=1, #rawdata[i] do
+    -----------        -- мапим каждый домен по "карте"
+    -----------        data[currlen+j] = vocab_mapping[rawdata[i]:sub(j, j)] -- lua has no string indexing using []
+    -----------    end
+    -----------    currlen = currlen + #rawdata[i]
+    -----------end
+    -----------f:close()
+
     local currlen = 0
     rawdata = f:read(cache_len)
     repeat
@@ -176,6 +200,13 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
         currlen = currlen + #rawdata
         rawdata = f:read(cache_len)
     until not rawdata
+    f:close()
+
+    print("Всего символов в data " .. currlen )
+
+    f = assert(io.open(in_textfile, "r"))
+    num_of_domains = stringx.splitlines(f:read("*all"))
+    print("Всего доменов загружено " .. #num_of_domains)
     f:close()
 
     -- save output preprocessed files
