@@ -353,10 +353,10 @@ for i = 1, iterations do
         break -- halt
     end
     if loss0 == nil then loss0 = loss[1] end
-    if loss[1] > loss0 * 3 then
-        print('loss is exploding, aborting.')
-        break -- halt
-    end
+    --if loss[1] > loss0 * 3 then
+    --    print('loss is exploding, aborting.')
+    --    break -- halt
+    --end
 end
 
 
